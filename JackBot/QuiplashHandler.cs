@@ -154,12 +154,12 @@ namespace JackBot
                 }
                 else
                 {
-                    await _botClient.SendTextMessageAsync(groupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n!");
+                    await _botClient.SendTextMessageAsync(groupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
                     session.VotingEnded = true;
                     return;
                 }
 
-                await _botClient.SendTextMessageAsync(groupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( ");
+                await _botClient.SendTextMessageAsync(groupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( Click /vote");
                 session.VotingEnded = true;
                 session.RemoveRevealedMatch(poll.Id);
             }
