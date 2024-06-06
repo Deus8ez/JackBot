@@ -244,7 +244,7 @@ namespace JackBot
                 return;
             }
             var session = _globalState.GetSession(groupId);
-
+            session.Playing = true;
             if (session.PlayerCount() < 2)
             {
                 await _botClient.SendTextMessageAsync(groupId, "Game should have at least two players");
@@ -303,6 +303,13 @@ namespace JackBot
                 return;
             }
             var session = _globalState.GetSession(groupId);
+
+            if (session.Playing)
+            {
+                await _botClient.SendTextMessageAsync(groupId, $"Session already started, player {playerName} can not join");
+                return;
+            }
+
             if (session.ContainsPlayer(playerId))
             {
                 await _botClient.SendTextMessageAsync(groupId, $"Player {playerName} already joined");

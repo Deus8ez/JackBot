@@ -6,6 +6,7 @@
         public string SessionId;
         public readonly long GroupId;
         private readonly SessionStateData _stateData;
+        public bool Playing;
         public bool VotingEnded;
         private Random _random;
         public Stack<string> CustomPrompts;
@@ -17,6 +18,7 @@
             _random = new Random();
             SessionId = sessionId;
             VotingEnded = true;
+            Playing = false;
         }
 
         public void AddCustomPrompt(string prompt)
@@ -151,6 +153,7 @@
 
         public void ClearState()
         {
+            Playing = false;
             _stateData.Clear();
         }
     }
