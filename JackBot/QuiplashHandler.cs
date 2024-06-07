@@ -94,11 +94,6 @@ namespace JackBot
 
         async Task Leave(long groupId, long playerId, string playerName)
         {
-            if (!_globalState.SessionExists(groupId))
-            {
-                await _botClient.SendTextMessageAsync(groupId, "Session does not exist");
-                return;
-            }
             var session = _globalState.GetSession(groupId);
             if (!session.ContainsPlayer(playerId))
             {
