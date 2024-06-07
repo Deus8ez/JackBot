@@ -239,7 +239,6 @@ namespace JackBot
                 return;
             }
             var session = _globalState.GetSession(groupId);
-            session.Playing = true;
             if (session.PlayerCount() < 2)
             {
                 await _botClient.SendTextMessageAsync(groupId, "Game should have at least two players");
@@ -247,14 +246,6 @@ namespace JackBot
             }
 
             var playerList = session.PlayerList();
-            var sb = new StringBuilder();
-            foreach (var player in playerList)
-            {
-                sb.Append(player.Username);
-                sb.Append(',');
-                await _botClient.SendTextMessageAsync(player.Id, $"Game started in group {groupName}");
-            }
-            sb.Remove(sb.Length - 1, 1);
 
             foreach (var player1 in playerList)
             {
@@ -287,7 +278,16 @@ namespace JackBot
                 }
             }
 
+            var sb = new StringBuilder();
+            foreach (var player in playerList)
+            {
+                sb.Append(player.Username);
+                sb.Append(',');
+                await _botClient.SendTextMessageAsync(player.Id, $"Game started in group {groupName}");
+            }
+            sb.Remove(sb.Length - 1, 1);
             await _botClient.SendTextMessageAsync(groupId, $"Game started. Prompts sent to users: {sb}");
+            session.Playing = true;
         }
 
         async Task JoinGame(long groupId, long playerId, string playerName)
