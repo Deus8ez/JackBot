@@ -158,15 +158,6 @@ namespace JackBot
                 return;
             };
 
-            if (update.PollAnswer != null)
-            {
-                await _botClient.SendTextMessageAsync(groupId, $"Received a vote from player {update.PollAnswer.User.Username}");
-            }
-            else
-            {
-                await _botClient.SendTextMessageAsync(groupId, $"PollAnswer object is null");
-            }
-
             match.Player1.MatchScore = poll.Options[0].VoterCount;
             if (session.TryGetPlayer(match.Player1.Id, out var player1))
             {
