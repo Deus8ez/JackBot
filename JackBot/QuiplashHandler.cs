@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
@@ -89,7 +90,44 @@ namespace JackBot
                 case "/setrussian":
                     await SetSessionPromptLanguage(groupId, "Ru");
                     break;
+                case "/getmetrics@jackboxer_bot":
+                case "/getmetrics":
+                    await GetMetrics(groupId);
+                    break;
             }
+        }
+
+        async Task GetMetrics(long groupId)
+        {
+            Process currentProcess = Process.GetCurrentProcess();
+            TimeSpan cpuTime = currentProcess.TotalProcessorTime;
+            long memoryUsage = currentProcess.WorkingSet64;
+            DateTime startTime = currentProcess.StartTime;
+            TimeSpan uptime = DateTime.Now - startTime;
+            var sb = new StringBuilder();
+            sb.AppendLine("CPU Time: ");
+            sb.AppendLine($"{cpuTime}\n");
+            sb.AppendLine("Memory Usage: ");
+            sb.AppendLine($"{FormatBytes(memoryUsage)}\n");
+            sb.AppendLine("Uptime: ");
+            sb.AppendLine($"{uptime}\n");
+            await _botClient.SendTextMessageAsync(groupId, sb.ToString());
+        }
+
+        static string FormatBytes(long bytes)
+        {
+            const int scale = 1024;
+            string[] orders = new string[] { "GB", "MB", "KB", "Bytes" };
+            long max = (long)Math.Pow(scale, orders.Length - 1);
+
+            foreach (string order in orders)
+            {
+                if (bytes > max)
+                    return string.Format("{0:##.##} {1}", decimal.Divide(bytes, max), order);
+
+                max /= scale;
+            }
+            return "0 Bytes";
         }
 
         async Task Leave(long groupId, long playerId, string playerName)
