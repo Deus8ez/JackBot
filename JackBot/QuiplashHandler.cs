@@ -299,9 +299,9 @@ namespace JackBot
             }
             var session = _globalState.GetSession(groupId);
 
-            if (session.Playing)
+            if (session.GetMatchCount() > 0)
             {
-                await _botClient.SendTextMessageAsync(groupId, $"Session already started, player {playerName} can not join");
+                await _botClient.SendTextMessageAsync(groupId, $"Session is being played, unplayed match count {session.GetMatchCount()}, player {playerName} can not join");
                 return;
             }
 
