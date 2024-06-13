@@ -123,6 +123,8 @@ namespace JackBot
             sb.AppendLine($"{FormatBytes(memoryUsage)}\n");
             sb.AppendLine("Uptime: ");
             sb.AppendLine($"{uptime}\n");
+            sb.AppendLine("Machine: ");
+            sb.AppendLine($"{currentProcess.MachineName}\n");
             await _botClient.SendTextMessageAsync(groupId, sb.ToString());
         }
 
