@@ -8,6 +8,14 @@ namespace JackBot
         private Random random = new();
         public async Task<string> GetRandomPrompt(string lang = "Ru")
         {
+            await Load(lang);
+            var prompt = _questions[GetRandomNumber()];
+            Clear();
+            return prompt;
+        }
+
+        public async Task Load(string lang = "Ru")
+        {
             string filePath = $"set{lang}.json";
             string jsonString = await File.ReadAllTextAsync(filePath);
             JsonDocument document = JsonDocument.Parse(jsonString);
@@ -16,12 +24,13 @@ namespace JackBot
             foreach (JsonElement item in contentArray.EnumerateArray())
             {
                 string promptValue = item.GetProperty("prompt").GetString();
-                Console.WriteLine($"prompt: {promptValue}");
                 _questions.Add(promptValue);
             }
-            var prompt = _questions[random.Next(0, _questions.Count)];
+        }
+
+        public void Clear()
+        {
             _questions.Clear();
-            return prompt;
         }
 
         public int GetRandomNumber()

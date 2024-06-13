@@ -103,7 +103,10 @@ namespace JackBot
 
         private async Task GetRandom(long groupId)
         {
-            await _botClient.SendTextMessageAsync(groupId, $"Question count {_questionManager.GetQuestionCount()}, random number {_questionManager.GetRandomNumber()}");
+            await _questionManager.Load();
+            var msg = $"Question count {_questionManager.GetQuestionCount()}, random number {_questionManager.GetRandomNumber()}";
+            await _botClient.SendTextMessageAsync(groupId, msg);
+            _questionManager.Clear();
         }
 
         async Task GetMetrics(long groupId)
