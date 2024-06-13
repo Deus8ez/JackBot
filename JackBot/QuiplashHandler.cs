@@ -94,7 +94,16 @@ namespace JackBot
                 case "/getmetrics":
                     await GetMetrics(groupId);
                     break;
+                case "/getrandom@jackboxer_bot":
+                case "/getrandom":
+                    await GetRandom(groupId);
+                    break;
             }
+        }
+
+        private async Task GetRandom(long groupId)
+        {
+            await _botClient.SendTextMessageAsync(groupId, $"Question count {_questionManager.GetQuestionCount()}, random number {_questionManager.GetRandomNumber()}");
         }
 
         async Task GetMetrics(long groupId)

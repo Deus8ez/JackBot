@@ -23,5 +23,15 @@ namespace JackBot
             _questions.Clear();
             return prompt;
         }
+
+        public int GetRandomNumber()
+        {
+            return random.Next(0, _questions.Count);
+        }
+
+        public int GetQuestionCount()
+        {
+            return _questions.Count;
+        }
     }
 }
