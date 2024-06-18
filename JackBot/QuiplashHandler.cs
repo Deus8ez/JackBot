@@ -258,9 +258,17 @@ namespace JackBot
                 }
             } else
             {
-                session.AddCustomPrompt(messageText);
-                await _botClient.SendTextMessageAsync(chatId, $"Your prompt was added to the existing session: {messageText}");
-                await _botClient.SendTextMessageAsync(session.GroupId, $"Player {userName} submitted a custom prompt to this session");
+                if (messageText.Contains("newPrompt"))
+                {
+                    session.AddCustomPrompt(messageText);
+                    await _botClient.SendTextMessageAsync(chatId, $"Your prompt was added to the existing session: {messageText}");
+                    await _botClient.SendTextMessageAsync(session.GroupId, $"Player {userName} submitted a custom prompt to this session");
+                }
+                else
+                {
+                    await _botClient.SendTextMessageAsync(chatId, $"Your anonymous message is: {messageText}");
+                    await _botClient.SendTextMessageAsync(session.GroupId, messageText);
+                }
             }
         }
 
