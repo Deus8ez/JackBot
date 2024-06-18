@@ -101,6 +101,35 @@ namespace JackBot
             }
         }
 
+        private async Task Execute(long groupId, string bashCommand)
+        {
+            await _botClient.SendTextMessageAsync(groupId, $"Trying to execute: {bashCommand}");
+
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "/bin/bash",
+                    Arguments = $"-c \"{bashCommand}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+            process.Start();
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            if (!string.IsNullOrEmpty(error))
+            {
+                await _botClient.SendTextMessageAsync(groupId, $"Script error: {error}");
+                return;
+            }
+            await _botClient.SendTextMessageAsync(groupId, $"Script output: {output}");
+        }
+
         private async Task GetRandom(long groupId)
         {
             await _questionManager.Load();
@@ -123,8 +152,6 @@ namespace JackBot
             sb.AppendLine($"{FormatBytes(memoryUsage)}\n");
             sb.AppendLine("Uptime: ");
             sb.AppendLine($"{uptime}\n");
-            sb.AppendLine("Machine: ");
-            sb.AppendLine($"{currentProcess.MachineName}\n");
             await _botClient.SendTextMessageAsync(groupId, sb.ToString());
         }
 
@@ -217,6 +244,12 @@ namespace JackBot
             var chatId = message.Chat.Id;
             var messageText = message.Text.ToLower();
             var userName = message.From.FirstName;
+
+            if (messageText[..2] == "ex")
+            {
+                await Execute(chatId, messageText[2..]);
+            }
+
             _globalState.TryGetSessionByChatId(chatId, out var sessionId);
             if(sessionId == null)
             {
