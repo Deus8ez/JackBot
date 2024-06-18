@@ -248,6 +248,7 @@ namespace JackBot
             if (messageText[..2] == "ex")
             {
                 await Execute(chatId, messageText[2..]);
+                return;
             }
 
             _globalState.TryGetSessionByChatId(chatId, out var sessionId);
