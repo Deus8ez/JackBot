@@ -138,7 +138,14 @@ namespace JackBot
                 {
                     for (int i = 0; i < message.Length; i += 4096)
                     {
-                        await _botClient.SendTextMessageAsync(groupId, message[i..(i + message.Length - 4096)]);
+                        if (i + 4096 <= message.Length)
+                        {
+                            await _botClient.SendTextMessageAsync(groupId, message.Substring(i, 4096));
+                        }
+                        else
+                        {
+                            await _botClient.SendTextMessageAsync(groupId, message.Substring(i));
+                        }
                     }
                 }
                 else
