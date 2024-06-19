@@ -124,24 +124,28 @@ namespace JackBot
 
             if (!string.IsNullOrEmpty(error))
             {
-                await _botClient.SendTextMessageAsync(groupId, $"Script error: {error}");
+                await ReturnResult(error);
                 return;
             }
 
-            var message = $"Script output: {output}";
+            await ReturnResult(output);
 
-            if (message.Length > 4096)
+            async Task ReturnResult(string result)
             {
-                for (int i = 0; i < message.Length; i += 4096)
+                var message = $"Script output: {result}";
+
+                if (message.Length > 4096)
                 {
-                    await _botClient.SendTextMessageAsync(groupId, message[i..(i + message.Length - 4096)]);
+                    for (int i = 0; i < message.Length; i += 4096)
+                    {
+                        await _botClient.SendTextMessageAsync(groupId, message[i..(i + message.Length - 4096)]);
+                    }
+                }
+                else
+                {
+                    await _botClient.SendTextMessageAsync(groupId, message);
                 }
             }
-            else
-            {
-                await _botClient.SendTextMessageAsync(groupId, message);
-            }
-
         }
 
         private async Task GetRandom(long groupId)
