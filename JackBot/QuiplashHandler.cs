@@ -134,7 +134,7 @@ namespace JackBot
             {
                 var message = $"Script output: {result}";
 
-                if (message.Length > 4096)
+                if (message.Length >= 4096)
                 {
                     for (int i = 0; i < message.Length; i += 4096)
                     {
