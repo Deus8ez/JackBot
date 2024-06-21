@@ -98,6 +98,10 @@ namespace JackBot
                 case "/getrandom":
                     await GetRandom(groupId);
                     break;
+                case "/pidaraz@jackboxer_bot":
+                case "/pidaraz":
+                    await _botClient.SendTextMessageAsync(groupId, "@ravilny");
+                    break;
             }
         }
 
