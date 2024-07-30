@@ -225,21 +225,21 @@ namespace JackBot
             };
 
             match.Player1.MatchScore = poll.Options[0].VoterCount;
-            if (session.TryGetPlayer(match.Player1.Id, out var player1))
-            {
-                player1.TotalScore += poll.Options[0].VoterCount;
-            };
-
             match.Player2.MatchScore = poll.Options[1].VoterCount;
-            if (session.TryGetPlayer(match.Player2.Id, out var player2))
-            {
-                player2.TotalScore += poll.Options[1].VoterCount;
-            };
 
             if (poll.TotalVoterCount >= session.PlayerCount())
             {
                 Player winner;
                 Player loser;
+
+                if (session.TryGetPlayer(match.Player1.Id, out var player1))
+                {
+                    player1.TotalScore += poll.Options[0].VoterCount;
+                };
+                if (session.TryGetPlayer(match.Player2.Id, out var player2))
+                {
+                    player2.TotalScore += poll.Options[1].VoterCount;
+                };
 
                 if (match.Player1.MatchScore > match.Player2.MatchScore)
                 {
