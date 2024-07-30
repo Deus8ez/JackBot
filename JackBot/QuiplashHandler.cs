@@ -255,6 +255,7 @@ namespace JackBot
                 {
                     await _botClient.SendTextMessageAsync(groupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
                     session.VotingEnded = true;
+                    session.RemoveRevealedMatch(poll.Id);
                     return;
                 }
 
