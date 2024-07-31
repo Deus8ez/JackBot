@@ -74,12 +74,12 @@ namespace JackBot
                 case "/end":
                     await EndGame(groupId, groupName);
                     break;
-                case "/sessionTotals@jackboxer_bot":
-                case "/sessionTotals":
+                case "/sessiontotals@jackboxer_bot":
+                case "/sessiontotals":
                     await ShowSessionTotals(groupId);
                     break;
-                case "/overallTotals@jackboxer_bot":
-                case "/overallTotals":
+                case "/overalltotals@jackboxer_bot":
+                case "/overalltotals":
                     await ShowOverallTotals(groupId);
                     break;
                 case "/exit@jackboxer_bot":
