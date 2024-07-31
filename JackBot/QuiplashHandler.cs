@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text;
+using System.Text.RegularExpressions;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
@@ -102,6 +103,10 @@ namespace JackBot
                 case "/getrandom":
                     await GetRandom(groupId);
                     break;
+                case "/resetoveralltotals@jackboxer_bot":
+                case "/resetoveralltotals":
+                    await ResetOverallTotals(groupId);
+                    break;
             }
         }
 
@@ -165,6 +170,12 @@ namespace JackBot
             var msg = $"Question count {_questionManager.GetQuestionCount()}, random number {_questionManager.GetRandomNumber()}";
             await _botClient.SendTextMessageAsync(groupId, msg);
             _questionManager.Clear();
+        }
+
+        private async Task ResetOverallTotals(long groupId)
+        {
+            _globalState.ResetTotals();
+            await _botClient.SendTextMessageAsync(groupId, "Stats reset");
         }
 
         async Task GetMetrics(long groupId)

@@ -26,6 +26,17 @@
             return false;
         }
 
+        public void ResetTotals()
+        {
+            foreach (var p in _playerIdToUsername)
+            {
+                if (StaticTotals.ContainsKey(p.Value))
+                {
+                    StaticTotals[p.Value] = 0;
+                }
+            }
+        }
+
         public void UpdateStaticTotals(long userId, long score)
         {
             if (_playerIdToUsername.ContainsKey(userId))
