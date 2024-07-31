@@ -74,9 +74,13 @@ namespace JackBot
                 case "/end":
                     await EndGame(groupId, groupName);
                     break;
-                case "/totals@jackboxer_bot":
-                case "/totals":
-                    await ShowTotals(groupId);
+                case "/sessionTotals@jackboxer_bot":
+                case "/sessionTotals":
+                    await ShowSessionTotals(groupId);
+                    break;
+                case "/overallTotals@jackboxer_bot":
+                case "/overallTotals":
+                    await ShowOverallTotals(groupId);
                     break;
                 case "/exit@jackboxer_bot":
                 case "/exit":
@@ -231,6 +235,9 @@ namespace JackBot
             {
                 Player winner;
                 Player loser;
+
+                _globalState.UpdateStaticTotals(match.Player1.Id, poll.Options[0].VoterCount);
+                _globalState.UpdateStaticTotals(match.Player2.Id, poll.Options[1].VoterCount);
 
                 if (session.TryGetPlayer(match.Player1.Id, out var player1))
                 {
@@ -412,6 +419,11 @@ namespace JackBot
 
         async Task JoinGame(long groupId, long playerId, string playerName)
         {
+            if (_globalState.TryRegisterPlayer(playerId, playerName))
+            {
+                await _botClient.SendTextMessageAsync(groupId, $"Player {playerName} has been registered");
+            }
+
             if (!_globalState.SessionExists(groupId))
             {
                 await _botClient.SendTextMessageAsync(groupId, "Session does not exist");
@@ -509,7 +521,7 @@ namespace JackBot
             }
         }
 
-        async Task ShowTotals(long groupId)
+        async Task ShowSessionTotals(long groupId)
         {
             if (!_globalState.SessionExists(groupId))
             {
@@ -525,7 +537,19 @@ namespace JackBot
                 sb.AppendLine();
             }
 
-            await _botClient.SendTextMessageAsync(groupId, $"Totals\n{sb}");
+            await _botClient.SendTextMessageAsync(groupId, $"Session totals\n{sb}");
+        }
+
+        async Task ShowOverallTotals(long groupId)
+        {
+            var sb = new StringBuilder();
+            foreach (var p in _globalState.StaticTotals)
+            {
+                sb.Append($"Player {p.Key}, Score {p.Value}");
+                sb.AppendLine();
+            }
+
+            await _botClient.SendTextMessageAsync(groupId, $"Overall totals\n{sb}");
         }
     }
 }

@@ -12,6 +12,39 @@
         private Dictionary<string, List<long>> _guidToChatIds = new();
 
         private Dictionary<string, Session> _sessions = new();
+        private Dictionary<long, string> _playerIdToUsername = new();
+        public Dictionary<string, long> StaticTotals = new();
+
+        public bool TryRegisterPlayer(long playerId, string userName)
+        {
+            if (!_playerIdToUsername.ContainsKey(playerId))
+            {
+                _playerIdToUsername.Add(playerId, userName);
+                return true;
+            }
+
+            return false;
+        }
+
+        public void UpdateStaticTotals(long userId, long score)
+        {
+            if (_playerIdToUsername.ContainsKey(userId))
+            {
+                var id = _playerIdToUsername[userId];
+                if (StaticTotals.ContainsKey(id))
+                {
+                    StaticTotals[id] += score;
+                }
+                else
+                {
+                    StaticTotals.Add(id, score);
+                }
+            }
+            else
+            {
+                throw new Exception("Username was not found!");
+            }
+        }
 
         public bool PlayerIsInSession(long playerId)
         {
