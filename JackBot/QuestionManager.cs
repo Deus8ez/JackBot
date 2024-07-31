@@ -4,6 +4,7 @@ namespace JackBot
 {
     internal class PromptManager
     {
+        private HashSet<string> _set = new();
         private List<string> _questions = new();
         private Random random = new();
         public async Task<string> GetRandomPrompt(string lang = "Ru")
@@ -24,12 +25,17 @@ namespace JackBot
             foreach (JsonElement item in contentArray.EnumerateArray())
             {
                 string promptValue = item.GetProperty("prompt").GetString();
-                _questions.Add(promptValue);
+                if (!_set.Contains(promptValue))
+                {
+                    _set.Add(promptValue);
+                    _questions.Add(promptValue);
+                }
             }
         }
 
         public void Clear()
         {
+            _set.Clear();
             _questions.Clear();
         }
 
