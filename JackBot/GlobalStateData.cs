@@ -1,4 +1,6 @@
-﻿namespace JackBot
+﻿using System.Runtime.CompilerServices;
+
+namespace JackBot
 {
     internal class GlobalStateData
     {
@@ -14,6 +16,9 @@
         private Dictionary<string, Session> _sessions = new();
         private Dictionary<long, string> _playerIdToUsername = new();
         public Dictionary<string, long> StaticTotals = new();
+
+        public Queue<(string, SessionMatch)> AsyncMatches = new();
+        public Dictionary<string, List<SessionMatch>> PromptToMatches = new();
 
         public bool TryRegisterPlayer(long playerId, string userName)
         {

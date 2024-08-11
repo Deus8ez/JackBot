@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Telegram.Bot;
@@ -283,11 +284,59 @@ namespace JackBot
             }
         }
 
+        async Task HandleGetPrompt(long chatId, long userId, string userName)
+        {
+            var prompt = await _questionManager.GetRandomPrompt();
+            if (_globalState.AsyncMatches.Count != 0)
+            {
+                var first = _globalState.AsyncMatches.Peek();
+                prompt = first.Item1;
+            }
+
+            await _botClient.SendTextMessageAsync(chatId, prompt);
+        }
+
+        async Task HandleAnswerPrompt(long chatId, long userId, string userName, string prompt, string response)
+        {
+            SessionMatch match;
+            if (_globalState.PromptToMatches.ContainsKey(prompt))
+            {
+                match = _globalState.PromptToMatches[prompt].FirstOrDefault();
+                if (match == null)
+                {
+                    match = new SessionMatch(prompt, null, null);
+                }
+            } else
+            {
+                match = new SessionMatch(prompt, null, null);
+                _globalState.PromptToMatches.Add(prompt, new List<SessionMatch> { match });
+            }
+
+            if (match.Player1 == null)
+            {
+                match.Player1 = new Player(userId, userName);
+                match.Player1Response = response;
+                match.ResponseCount++;
+                await _botClient.SendTextMessageAsync(chatId, $"(Async) Prompt: {prompt}, Your answer {response}");
+                return;
+            }
+
+            if (match.Player2 == null)
+            {
+                match.Player2 = new Player(userId, userName);
+                match.Player2Response = response;
+                match.ResponseCount++;
+                await _botClient.SendTextMessageAsync(chatId, $"(Async) Prompt: {prompt}, Your answer {response}");
+                return;
+            }
+        }
+
         async Task HandlePrivateAsync(Message message)
         {
             var chatId = message.Chat.Id;
             var messageText = message.Text.ToLower();
             var userName = message.From.FirstName;
+            var userId = message.From.Id;
 
             if (messageText[..2] == "ex")
             {
@@ -295,18 +344,28 @@ namespace JackBot
                 return;
             }
 
-            _globalState.TryGetSessionByChatId(chatId, out var sessionId);
-            if(sessionId == null)
+            switch (messageText)
             {
-                await _botClient.SendTextMessageAsync(chatId, $"Session not found");
-                return;
+                case "/getprompt@jackboxer_bot":
+                case "/getprompt":
+                    await HandleGetPrompt(chatId, userId, userName);
+                    break;
             }
-
-            var session = _globalState.GetSession(sessionId);
 
             if (message.ReplyToMessage != null)
             {
                 var replyMessage = message.ReplyToMessage;
+
+                await HandleAnswerPrompt(chatId,userId,userName,replyMessage.Text,messageText);
+
+                _globalState.TryGetSessionByChatId(chatId, out var sessionId);
+                if (sessionId == null)
+                {
+                    await _botClient.SendTextMessageAsync(chatId, $"Session not found");
+                    return;
+                }
+
+                var session = _globalState.GetSession(sessionId);
                 if (session.TryGetMatch(chatId, replyMessage.MessageId, out var match))
                 {
                     if (match.Player1.Id == chatId)
@@ -333,19 +392,6 @@ namespace JackBot
                     }
 
                     await _botClient.SendTextMessageAsync(chatId, $"Prompt: {replyMessage.Text}, Your answer {messageText}");
-                }
-            } else
-            {
-                if (messageText.Contains("newPrompt"))
-                {
-                    session.AddCustomPrompt(messageText);
-                    await _botClient.SendTextMessageAsync(chatId, $"Your prompt was added to the existing session: {messageText}");
-                    await _botClient.SendTextMessageAsync(session.GroupId, $"Player {userName} submitted a custom prompt to this session");
-                }
-                else
-                {
-                    await _botClient.SendTextMessageAsync(chatId, $"Your anonymous message is: {messageText}");
-                    await _botClient.SendTextMessageAsync(session.GroupId, messageText);
                 }
             }
         }
@@ -470,6 +516,11 @@ namespace JackBot
 
         async Task SendPoll(long groupId)
         {
+            var firstAsyncPoll = _globalState.AsyncMatches.Peek();
+            if(firstAsyncPoll.Item2.ResponseCount == 2)
+            {
+
+            }
             if (!_globalState.SessionExists(groupId))
             {
                 await _botClient.SendTextMessageAsync(groupId, "Session does not exist");
