@@ -6,6 +6,7 @@ namespace JackBot
     {
         private Dictionary<long, string> _groupIdToPollId = new();
         private Dictionary<string, long> _pollIdToGroupId = new();
+        public Dictionary<string, SessionMatch> PollIdToMatch = new();
 
         private Dictionary<long, string> _groupIdToGuid = new();
         private Dictionary<string, long> _guidToGroupId = new();
@@ -155,6 +156,11 @@ namespace JackBot
         public void AddPollToGroup(string pollId, long chatId)
         {
             _pollIdToGroupId.Add(pollId, chatId);
+        }
+
+        public void AddPollToMatchId(string pollId, SessionMatch match)
+        {
+            PollIdToMatch.Add(pollId, match);
         }
     }
 }
