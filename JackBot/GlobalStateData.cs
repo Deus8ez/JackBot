@@ -19,7 +19,7 @@ namespace JackBot
         public Dictionary<string, long> StaticTotals = new();
 
         public Queue<(string, SessionMatch)> AsyncMatches = new();
-        public Dictionary<string, List<SessionMatch>> PromptToMatches = new();
+        public Dictionary<string, Dictionary<string, SessionMatch>> PromptToMatches = new();
 
         public bool TryRegisterPlayer(long playerId, string userName)
         {

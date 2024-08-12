@@ -56,57 +56,61 @@ namespace JackBot
 
             switch (messageText)
             {
-                case "/new@jackboxer_bot":
+                case "/new@darkhan_test_bot":
                 case "/new":
                     await CreateNewGame(groupId);
                     break;
-                case "/start@jackboxer_bot":
+                case "/start@darkhan_test_bot":
                 case "/start":
                     await StartGame(groupId, groupName);
                     break;
-                case "/join@jackboxer_bot":
+                case "/join@darkhan_test_bot":
                 case "/join":
                     await JoinGame(groupId, message.From.Id, message.From.FirstName);
                     break;
-                case "/vote@jackboxer_bot":
+                case "/vote@darkhan_test_bot":
                 case "/vote":
                     await SendPoll(groupId);
                     break;
-                case "/end@jackboxer_bot":
+                case "/end@darkhan_test_bot":
                 case "/end":
                     await EndGame(groupId, groupName);
                     break;
-                case "/sessiontotals@jackboxer_bot":
+                case "/sessiontotals@darkhan_test_bot":
                 case "/sessiontotals":
                     await ShowSessionTotals(groupId);
                     break;
-                case "/overalltotals@jackboxer_bot":
+                case "/overalltotals@darkhan_test_bot":
                 case "/overalltotals":
                     await ShowOverallTotals(groupId);
                     break;
-                case "/exit@jackboxer_bot":
+                case "/exit@darkhan_test_bot":
                 case "/exit":
                     await Leave(groupId, message.From.Id, message.From.FirstName);
                     break;
-                case "/setenglish@jackboxer_bot":
+                case "/setenglish@darkhan_test_bot":
                 case "/setenglish":
                     await SetSessionPromptLanguage(groupId, "En");
                     break;
-                case "/setrussian@jackboxer_bot":
+                case "/setrussian@darkhan_test_bot":
                 case "/setrussian":
                     await SetSessionPromptLanguage(groupId, "Ru");
                     break;
-                case "/getmetrics@jackboxer_bot":
+                case "/getmetrics@darkhan_test_bot":
                 case "/getmetrics":
                     await GetMetrics(groupId);
                     break;
-                case "/getrandom@jackboxer_bot":
+                case "/getrandom@darkhan_test_bot":
                 case "/getrandom":
                     await GetRandom(groupId);
                     break;
-                case "/resetoveralltotals@jackboxer_bot":
+                case "/resetoveralltotals@darkhan_test_bot":
                 case "/resetoveralltotals":
                     await ResetOverallTotals(groupId);
+                    break;
+                case "/getstatus@darkhan_test_bot":
+                case "/getstatus":
+                    await _botClient.SendTextMessageAsync(groupId, $"Prompts in queue: {_globalState.AsyncMatches.Count}");
                     break;
             }
         }
@@ -294,12 +298,17 @@ namespace JackBot
 
         async Task HandleGetPrompt(long chatId)
         {
-            string prompt;
-            if (_globalState.AsyncMatches.TryPeek(out var first))
+            string prompt = "";
+            foreach (var match in _globalState.AsyncMatches)
             {
-                prompt = first.Item1;
+                if (match.Item2.ResponseCount < 2 && match.Item2.Player1.Id != chatId)
+                {
+                    prompt = match.Item1;
+                    break;
+                }
             }
-            else
+
+            if (prompt.Length == 0)
             {
                 prompt = await _questionManager.GetRandomPrompt();
             }
@@ -316,18 +325,21 @@ namespace JackBot
                 {
                     if (matches.Count == 0)
                     {
-                        matches = new List<SessionMatch> { match };
+                        matches = new Dictionary<string, SessionMatch>();
+                        matches.Add(match.Guid.ToString(), match);
                         _globalState.PromptToMatches[prompt] = matches;
                     }
                     else
                     {
-                        match = matches.First();
+                        match = matches.First().Value;
                     }
 
-                }
+                } 
             } else
             {
-                _globalState.PromptToMatches.Add(prompt, new List<SessionMatch> { match });
+                var newDict = new Dictionary<string, SessionMatch>();
+                newDict.Add(match.Guid.ToString(), match);
+                _globalState.PromptToMatches.Add(prompt, newDict);
             }
 
             if (match.Player1 == null)
@@ -401,7 +413,7 @@ namespace JackBot
 
             switch (messageText)
             {
-                case "/getprompt@jackboxer_bot":
+                case "/getprompt@darkhan_test_bot":
                 case "/getprompt":
                     await HandleGetPrompt(chatId);
                     break;
@@ -551,7 +563,7 @@ namespace JackBot
                             match.Player1Response,
                             match.Player2Response
                         });
-
+                    _globalState.PromptToMatches[match.Prompt].Remove(match.Guid.ToString());
                     _globalState.AddPollToMatchId(poll.Poll.Id, match);
                     await _botClient.SendTextMessageAsync(groupId, "Async vote sent");
                     return;
