@@ -8,12 +8,24 @@
         public string Player1Response;
         public Player Player2;
         public string Player2Response;
+        public DateTime VoteTime;
+
         public SessionMatch(string prompt, Player player1, Player player2)
         {
             Prompt = prompt;
             Player1 = player1;
             Player2 = player2;
         }
+
+        public bool IsExpired()
+        {
+            if ((DateTime.Now - VoteTime).Minutes > 2)
+            {
+                return true;
+            }
+            return false;
+        }
+
         public int ResponseCount { get; set; }
         public bool HasPlayers()
         {

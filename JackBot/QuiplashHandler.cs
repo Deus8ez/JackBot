@@ -233,15 +233,25 @@ namespace JackBot
         async Task HandleVote(Update update)
         {
             var poll = update.Poll;
+            _globalState.TryGetGroupId(poll.Id, out long groupId);
 
             //fix
             if (_globalState.PollIdToMatch.TryGetValue(poll.Id, out var asyncMatch))
             {
-                asyncMatch.Player1.MatchScore = poll.Options[0].VoterCount;
-                asyncMatch.Player2.MatchScore = poll.Options[1].VoterCount;
+                if (asyncMatch.IsExpired())
+                {
+                    await _botClient.SendTextMessageAsync(groupId, $"This match expired");
+                    return;
+                }
+                else
+                {
+                    asyncMatch.Player1.MatchScore = poll.Options[0].VoterCount;
+                    asyncMatch.Player2.MatchScore = poll.Options[1].VoterCount;
+                    _globalState.UpdateStaticTotals(asyncMatch.Player1.Id, poll.Options[0].VoterCount);
+                    _globalState.UpdateStaticTotals(asyncMatch.Player2.Id, poll.Options[1].VoterCount);
+                }
             }
 
-            _globalState.TryGetGroupId(poll.Id, out long groupId);
             if (!_globalState.SessionExists(groupId))
             {
                 return;
@@ -552,8 +562,9 @@ namespace JackBot
             {
                 var match = firstAsyncPoll.Item2;
 
-                if (match.ResponseCount == 2)
+                if (match.ResponseCount >= 2)
                 {
+                    match.VoteTime = DateTime.Now;
                     _globalState.AsyncMatches.Dequeue();
                     var poll = await _botClient.SendPollAsync(
                         chatId: groupId,
@@ -563,8 +574,18 @@ namespace JackBot
                             match.Player1Response,
                             match.Player2Response
                         });
-                    _globalState.PromptToMatches[match.Prompt].Remove(match.Guid.ToString());
+
+                    if (_globalState.PromptToMatches.ContainsKey(match.Prompt))
+                    {
+                        _globalState.PromptToMatches[match.Prompt].Remove(match.Guid.ToString());
+                        if (_globalState.PromptToMatches[match.Prompt].Count == 0)
+                        {
+                            _globalState.PromptToMatches.Remove(match.Prompt);
+                        }
+                    }
+
                     _globalState.AddPollToMatchId(poll.Poll.Id, match);
+                    _globalState.AddPollToGroup(poll.Poll.Id, groupId);
                     await _botClient.SendTextMessageAsync(groupId, "Async vote sent");
                     return;
                 }
