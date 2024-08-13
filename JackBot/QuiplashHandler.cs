@@ -56,59 +56,59 @@ namespace JackBot
 
             switch (messageText)
             {
-                case "/new@darkhan_test_bot":
+                case "/new@jackboxer_bot":
                 case "/new":
                     await CreateNewGame(groupId);
                     break;
-                case "/start@darkhan_test_bot":
+                case "/start@jackboxer_bot":
                 case "/start":
                     await StartGame(groupId, groupName);
                     break;
-                case "/join@darkhan_test_bot":
+                case "/join@jackboxer_bot":
                 case "/join":
                     await JoinGame(groupId, message.From.Id, message.From.FirstName);
                     break;
-                case "/vote@darkhan_test_bot":
+                case "/vote@jackboxer_bot":
                 case "/vote":
                     await SendPoll(groupId);
                     break;
-                case "/end@darkhan_test_bot":
+                case "/end@jackboxer_bot":
                 case "/end":
                     await EndGame(groupId, groupName);
                     break;
-                case "/sessiontotals@darkhan_test_bot":
+                case "/sessiontotals@jackboxer_bot":
                 case "/sessiontotals":
                     await ShowSessionTotals(groupId);
                     break;
-                case "/overalltotals@darkhan_test_bot":
+                case "/overalltotals@jackboxer_bot":
                 case "/overalltotals":
                     await ShowOverallTotals(groupId);
                     break;
-                case "/exit@darkhan_test_bot":
+                case "/exit@jackboxer_bot":
                 case "/exit":
                     await Leave(groupId, message.From.Id, message.From.FirstName);
                     break;
-                case "/setenglish@darkhan_test_bot":
+                case "/setenglish@jackboxer_bot":
                 case "/setenglish":
                     await SetSessionPromptLanguage(groupId, "En");
                     break;
-                case "/setrussian@darkhan_test_bot":
+                case "/setrussian@jackboxer_bot":
                 case "/setrussian":
                     await SetSessionPromptLanguage(groupId, "Ru");
                     break;
-                case "/getmetrics@darkhan_test_bot":
+                case "/getmetrics@jackboxer_bot":
                 case "/getmetrics":
                     await GetMetrics(groupId);
                     break;
-                case "/getrandom@darkhan_test_bot":
+                case "/getrandom@jackboxer_bot":
                 case "/getrandom":
                     await GetRandom(groupId);
                     break;
-                case "/resetoveralltotals@darkhan_test_bot":
+                case "/resetoveralltotals@jackboxer_bot":
                 case "/resetoveralltotals":
                     await ResetOverallTotals(groupId);
                     break;
-                case "/getstatus@darkhan_test_bot":
+                case "/getstatus@jackboxer_bot":
                 case "/getstatus":
                     await _botClient.SendTextMessageAsync(groupId, $"Prompts in queue: {_globalState.AsyncMatches.Count}");
                     break;
@@ -423,7 +423,7 @@ namespace JackBot
 
             switch (messageText)
             {
-                case "/getprompt@darkhan_test_bot":
+                case "/getprompt@jackboxer_bot":
                 case "/getprompt":
                     await HandleGetPrompt(chatId);
                     break;
