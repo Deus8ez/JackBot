@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Telegram.Bot;
@@ -106,6 +107,10 @@ namespace JackBot
                 case "/resetoveralltotals@jackboxer_bot":
                 case "/resetoveralltotals":
                     await ResetOverallTotals(groupId);
+                    break;
+                case "/getstatus@jackboxer_bot":
+                case "/getstatus":
+                    await _botClient.SendTextMessageAsync(groupId, $"Prompts in queue: {_globalState.AsyncMatches.Count}");
                     break;
             }
         }
@@ -229,6 +234,22 @@ namespace JackBot
         {
             var poll = update.Poll;
             _globalState.TryGetGroupId(poll.Id, out long groupId);
+
+            //fix
+            if (_globalState.PollIdToMatch.TryGetValue(poll.Id, out var asyncMatch))
+            {
+                if (asyncMatch.IsExpired())
+                {
+                    await _botClient.SendTextMessageAsync(groupId, $"This match expired");
+                    return;
+                }
+                else
+                {
+                    asyncMatch.Player1.MatchScore = poll.Options[0].VoterCount;
+                    asyncMatch.Player2.MatchScore = poll.Options[1].VoterCount;
+                }
+            }
+
             if (!_globalState.SessionExists(groupId))
             {
                 return;
@@ -242,7 +263,7 @@ namespace JackBot
             match.Player1.MatchScore = poll.Options[0].VoterCount;
             match.Player2.MatchScore = poll.Options[1].VoterCount;
 
-            if (poll.TotalVoterCount >= session.PlayerCount())
+            if (match.IsExpired() || poll.TotalVoterCount >= session.PlayerCount())
             {
                 Player winner;
                 Player loser;
@@ -283,11 +304,116 @@ namespace JackBot
             }
         }
 
+        async Task HandleGetPrompt(long chatId)
+        {
+            string prompt = "";
+            foreach (var match in _globalState.AsyncMatches)
+            {
+                if (match.Item2.ResponseCount < 2 && match.Item2.Player1.Id != chatId)
+                {
+                    prompt = match.Item1;
+                    break;
+                }
+            }
+
+            if (prompt.Length == 0)
+            {
+                prompt = await _questionManager.GetRandomPrompt();
+            }
+
+            await _botClient.SendTextMessageAsync(chatId, prompt);
+        }
+
+        async Task HandleAnswerPrompt(long chatId, long userId, string userName, string prompt, string response, Message replyMessage)
+        {
+            SessionMatch match = new SessionMatch(prompt, null, null);
+            if (_globalState.PromptToMatches.ContainsKey(prompt))
+            {
+                if (_globalState.PromptToMatches.TryGetValue(prompt, out var matches))
+                {
+                    if (matches.Count == 0)
+                    {
+                        matches = new Dictionary<string, SessionMatch>();
+                        matches.Add(match.Guid.ToString(), match);
+                        _globalState.PromptToMatches[prompt] = matches;
+                    }
+                    else
+                    {
+                        match = matches.First().Value;
+                    }
+
+                } 
+            } else
+            {
+                var newDict = new Dictionary<string, SessionMatch>();
+                newDict.Add(match.Guid.ToString(), match);
+                _globalState.PromptToMatches.Add(prompt, newDict);
+            }
+
+            if (match.Player1 == null)
+            {
+                match.Player1 = new Player(userId, userName);
+                match.Player1Response = response;
+                match.ResponseCount++;
+                _globalState.AsyncMatches.Enqueue((prompt, match));
+                _globalState.TryRegisterPlayer(userId, userName);
+                await _botClient.SendTextMessageAsync(chatId, $"(Async) Prompt: {prompt}, Your answer {response}");
+                return;
+            }
+
+            if (match.Player2 == null)
+            {
+                match.Player2 = new Player(userId, userName);
+                match.Player2Response = response;
+                match.ResponseCount++;
+                _globalState.TryRegisterPlayer(userId, userName);
+                await _botClient.SendTextMessageAsync(chatId, $"(Async) Prompt: {prompt}, Your answer {response}");
+                return;
+            }
+
+            _globalState.TryGetSessionByChatId(chatId, out var sessionId);
+            if (sessionId == null)
+            {
+                await _botClient.SendTextMessageAsync(chatId, $"Session not found");
+                return;
+            }
+
+            var session = _globalState.GetSession(sessionId);
+            if (session.TryGetMatch(chatId, replyMessage.MessageId, out var sessionMatch))
+            {
+                if (sessionMatch.Player1.Id == chatId)
+                {
+                    if (sessionMatch.Player1Response != null)
+                    {
+                        await _botClient.SendTextMessageAsync(chatId, $"You already answered to: {replyMessage.Text}, Your answer was {sessionMatch.Player1Response}");
+                        return;
+                    }
+                    sessionMatch.Player1Response = response;
+                    sessionMatch.ResponseCount++;
+                }
+
+
+                if (sessionMatch.Player2.Id == chatId)
+                {
+                    if (sessionMatch.Player2Response != null)
+                    {
+                        await _botClient.SendTextMessageAsync(chatId, $"You already answered to: {replyMessage.Text}, Your answer was {sessionMatch.Player2Response}");
+                        return;
+                    }
+                    sessionMatch.Player2Response = response;
+                    sessionMatch.ResponseCount++;
+                }
+
+                await _botClient.SendTextMessageAsync(chatId, $"Prompt: {replyMessage.Text}, Your answer {response}");
+            }
+        }
+
         async Task HandlePrivateAsync(Message message)
         {
             var chatId = message.Chat.Id;
             var messageText = message.Text.ToLower();
             var userName = message.From.FirstName;
+            var userId = message.From.Id;
 
             if (messageText[..2] == "ex")
             {
@@ -295,58 +421,20 @@ namespace JackBot
                 return;
             }
 
-            _globalState.TryGetSessionByChatId(chatId, out var sessionId);
-            if(sessionId == null)
+            switch (messageText)
             {
-                await _botClient.SendTextMessageAsync(chatId, $"Session not found");
-                return;
+                case "/getprompt@jackboxer_bot":
+                case "/getprompt":
+                    await HandleGetPrompt(chatId);
+                    break;
             }
-
-            var session = _globalState.GetSession(sessionId);
 
             if (message.ReplyToMessage != null)
             {
                 var replyMessage = message.ReplyToMessage;
-                if (session.TryGetMatch(chatId, replyMessage.MessageId, out var match))
-                {
-                    if (match.Player1.Id == chatId)
-                    {
-                        if (match.Player1Response != null)
-                        {
-                            await _botClient.SendTextMessageAsync(chatId, $"You already answered to: {replyMessage.Text}, Your answer was {match.Player1Response}");
-                            return;
-                        }
-                        match.Player1Response = messageText;
-                        match.ResponseCount++;
-                    }
 
+                await HandleAnswerPrompt(chatId,userId,userName,replyMessage.Text,messageText, replyMessage);
 
-                    if (match.Player2.Id == chatId)
-                    {
-                        if (match.Player2Response != null)
-                        {
-                            await _botClient.SendTextMessageAsync(chatId, $"You already answered to: {replyMessage.Text}, Your answer was {match.Player2Response}");
-                            return;
-                        }
-                        match.Player2Response = messageText;
-                        match.ResponseCount++;
-                    }
-
-                    await _botClient.SendTextMessageAsync(chatId, $"Prompt: {replyMessage.Text}, Your answer {messageText}");
-                }
-            } else
-            {
-                if (messageText.Contains("newPrompt"))
-                {
-                    session.AddCustomPrompt(messageText);
-                    await _botClient.SendTextMessageAsync(chatId, $"Your prompt was added to the existing session: {messageText}");
-                    await _botClient.SendTextMessageAsync(session.GroupId, $"Player {userName} submitted a custom prompt to this session");
-                }
-                else
-                {
-                    await _botClient.SendTextMessageAsync(chatId, $"Your anonymous message is: {messageText}");
-                    await _botClient.SendTextMessageAsync(session.GroupId, messageText);
-                }
             }
         }
 
@@ -470,6 +558,39 @@ namespace JackBot
 
         async Task SendPoll(long groupId)
         {
+            if (_globalState.AsyncMatches.TryPeek(out var firstAsyncPoll))
+            {
+                var match = firstAsyncPoll.Item2;
+
+                if (match.ResponseCount >= 2)
+                {
+                    match.VoteTime = DateTime.Now;
+                    _globalState.AsyncMatches.Dequeue();
+                    var poll = await _botClient.SendPollAsync(
+                        chatId: groupId,
+                        isAnonymous: false,
+                        question: match.Prompt,
+                        options: new List<string> {
+                            match.Player1Response,
+                            match.Player2Response
+                        });
+
+                    if (_globalState.PromptToMatches.ContainsKey(match.Prompt))
+                    {
+                        _globalState.PromptToMatches[match.Prompt].Remove(match.Guid.ToString());
+                        if (_globalState.PromptToMatches[match.Prompt].Count == 0)
+                        {
+                            _globalState.PromptToMatches.Remove(match.Prompt);
+                        }
+                    }
+
+                    _globalState.AddPollToMatchId(poll.Poll.Id, match);
+                    _globalState.AddPollToGroup(poll.Poll.Id, groupId);
+                    await _botClient.SendTextMessageAsync(groupId, "Async vote sent");
+                    return;
+                }
+            }
+
             if (!_globalState.SessionExists(groupId))
             {
                 await _botClient.SendTextMessageAsync(groupId, "Session does not exist");
@@ -554,6 +675,17 @@ namespace JackBot
         async Task ShowOverallTotals(long groupId)
         {
             var sb = new StringBuilder();
+
+            foreach (var match in _globalState.PollIdToMatch)
+            {
+                if (match.Value.IsExpired())
+                {
+                    _globalState.UpdateStaticTotals(match.Value.Player1.Id, match.Value.Player1.MatchScore);
+                    _globalState.UpdateStaticTotals(match.Value.Player2.Id, match.Value.Player2.MatchScore);
+                    _globalState.PollIdToMatch.Remove(match.Key);
+                }
+            }
+
             foreach (var p in _globalState.StaticTotals)
             {
                 sb.Append($"Player {p.Key}, Score {p.Value}");
