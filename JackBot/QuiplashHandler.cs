@@ -247,8 +247,6 @@ namespace JackBot
                 {
                     asyncMatch.Player1.MatchScore = poll.Options[0].VoterCount;
                     asyncMatch.Player2.MatchScore = poll.Options[1].VoterCount;
-                    _globalState.UpdateStaticTotals(asyncMatch.Player1.Id, poll.Options[0].VoterCount);
-                    _globalState.UpdateStaticTotals(asyncMatch.Player2.Id, poll.Options[1].VoterCount);
                 }
             }
 
@@ -265,7 +263,7 @@ namespace JackBot
             match.Player1.MatchScore = poll.Options[0].VoterCount;
             match.Player2.MatchScore = poll.Options[1].VoterCount;
 
-            if (poll.TotalVoterCount >= session.PlayerCount())
+            if (match.IsExpired() || poll.TotalVoterCount >= session.PlayerCount())
             {
                 Player winner;
                 Player loser;
@@ -358,6 +356,7 @@ namespace JackBot
                 match.Player1Response = response;
                 match.ResponseCount++;
                 _globalState.AsyncMatches.Enqueue((prompt, match));
+                _globalState.TryRegisterPlayer(userId, userName);
                 await _botClient.SendTextMessageAsync(chatId, $"(Async) Prompt: {prompt}, Your answer {response}");
                 return;
             }
@@ -367,6 +366,7 @@ namespace JackBot
                 match.Player2 = new Player(userId, userName);
                 match.Player2Response = response;
                 match.ResponseCount++;
+                _globalState.TryRegisterPlayer(userId, userName);
                 await _botClient.SendTextMessageAsync(chatId, $"(Async) Prompt: {prompt}, Your answer {response}");
                 return;
             }
@@ -675,6 +675,17 @@ namespace JackBot
         async Task ShowOverallTotals(long groupId)
         {
             var sb = new StringBuilder();
+
+            foreach (var match in _globalState.PollIdToMatch)
+            {
+                if (match.Value.IsExpired())
+                {
+                    _globalState.UpdateStaticTotals(match.Value.Player1.Id, match.Value.Player1.MatchScore);
+                    _globalState.UpdateStaticTotals(match.Value.Player2.Id, match.Value.Player2.MatchScore);
+                    _globalState.PollIdToMatch.Remove(match.Key);
+                }
+            }
+
             foreach (var p in _globalState.StaticTotals)
             {
                 sb.Append($"Player {p.Key}, Score {p.Value}");
