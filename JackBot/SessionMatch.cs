@@ -19,7 +19,7 @@
 
         public bool IsExpired()
         {
-            if ((DateTime.Now - VoteTime).Minutes > 2)
+            if ((DateTime.Now - VoteTime).Days > 1)
             {
                 return true;
             }
