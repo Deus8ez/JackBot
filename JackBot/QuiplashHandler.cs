@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -21,21 +22,21 @@ namespace JackBot
             Task.Run(Monitor);
         }
 
-        private void Monitor()
+        private async Task Monitor()
         {
             while (true)
             {
-                foreach (var pair in _globalState.PollIdToMatch)
+                if(_globalState.AsyncCompleteMatches.TryPeek(out var match))
                 {
-                    var match = pair.Value;
                     if (match.IsExpired(_globalState.TimeOutMinutes) && match.GroupId != 0)
                     {
                         _globalState.UpdateStaticTotals(match.Player1.Id, match.Player1.MatchScore);
                         _globalState.UpdateStaticTotals(match.Player2.Id, match.Player2.MatchScore);
-                        _globalState.PollIdToMatch.Remove(pair.Key);
+                        _globalState.PollIdToMatch.Remove(match.Guid.ToString());
+                        _globalState.AsyncCompleteMatches.Dequeue();
                         Player winner;
                         Player loser;
-                        _botClient.SendTextMessageAsync(match.GroupId, $"Prompt: {match.Prompt}.\n {match.Player1.Username} response: {match.Player1Response}\n {match.Player2.Username} response: {match.Player2Response}\n");
+                        await _botClient.SendTextMessageAsync(match.GroupId, $"Prompt: {match.Prompt}.\n{match.Player1.Username} response: {match.Player1Response}\n{match.Player2.Username} response: {match.Player2Response}\n");
 
                         if (match.Player1.MatchScore > match.Player2.MatchScore)
                         {
@@ -49,11 +50,11 @@ namespace JackBot
                         }
                         else
                         {
-                            _botClient.SendTextMessageAsync(match.GroupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
+                            await _botClient.SendTextMessageAsync(match.GroupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
                             continue;
                         }
 
-                        _botClient.SendTextMessageAsync(match.GroupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( Click /vote");
+                        await _botClient.SendTextMessageAsync(match.GroupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( Click /vote");
                     }
                 }
             }
@@ -153,7 +154,7 @@ namespace JackBot
                     break;
                 case "/getstatus@jackboxer_bot":
                 case "/getstatus":
-                    await _botClient.SendTextMessageAsync(groupId, $"Prompts in queue: {_globalState.AsyncMatches.Count}");
+                    await _botClient.SendTextMessageAsync(groupId, $"Prompts in queue: {_globalState.AsyncToBePickedUpMatches.Count}");
                     break;
             }
         }
@@ -374,7 +375,7 @@ namespace JackBot
         async Task HandleGetPrompt(long chatId)
         {
             string prompt = "";
-            foreach (var match in _globalState.AsyncMatches)
+            foreach (var match in _globalState.AsyncToBePickedUpMatches)
             {
                 if (match.Item2.ResponseCount < 2 && match.Item2.Player1.Id != chatId)
                 {
@@ -426,7 +427,7 @@ namespace JackBot
                     match.Player1 = new Player(userId, userName);
                     match.Player1Response = response;
                     match.ResponseCount++;
-                    _globalState.AsyncMatches.Enqueue((prompt, match));
+                    _globalState.AsyncToBePickedUpMatches.Enqueue((prompt, match));
                     _globalState.TryRegisterPlayer(userId, userName);
                     await _botClient.SendTextMessageAsync(chatId, $"(Async) Prompt: {prompt}, Your answer {response}");
                     return;
@@ -630,7 +631,7 @@ namespace JackBot
 
         async Task SendPoll(long groupId)
         {
-            if (_globalState.AsyncMatches.TryPeek(out var firstAsyncPoll))
+            if (_globalState.AsyncToBePickedUpMatches.TryPeek(out var firstAsyncPoll))
             {
                 var match = firstAsyncPoll.Item2;
 
@@ -638,7 +639,7 @@ namespace JackBot
                 {
                     match.VoteTime = DateTime.Now;
                     match.GroupId = groupId;
-                    _globalState.AsyncMatches.Dequeue();
+                    _globalState.AsyncToBePickedUpMatches.Dequeue();
                     var poll = await _botClient.SendPollAsync(
                         chatId: groupId,
                         isAnonymous: false,

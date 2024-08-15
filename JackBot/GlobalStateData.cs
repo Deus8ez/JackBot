@@ -4,7 +4,7 @@ namespace JackBot
 {
     internal class GlobalStateData
     {
-        public int TimeOutMinutes = 2;
+        public int TimeOutMinutes = 1;
         private Dictionary<long, string> _groupIdToPollId = new();
         private Dictionary<string, long> _pollIdToGroupId = new();
         public Dictionary<string, SessionMatch> PollIdToMatch = new();
@@ -19,8 +19,9 @@ namespace JackBot
         private Dictionary<long, string> _playerIdToUsername = new();
         public Dictionary<string, long> StaticTotals = new();
 
-        public Queue<(string, SessionMatch)> AsyncMatches = new();
+        public Queue<(string, SessionMatch)> AsyncToBePickedUpMatches = new();
         public Dictionary<string, Dictionary<string, SessionMatch>> PromptToMatches = new();
+        public Queue<SessionMatch> AsyncCompleteMatches = new();
 
         public bool TryRegisterPlayer(long playerId, string userName)
         {
@@ -162,6 +163,7 @@ namespace JackBot
         public void AddPollToMatchId(string pollId, SessionMatch match)
         {
             PollIdToMatch.Add(pollId, match);
+            AsyncCompleteMatches.Enqueue(match);
         }
     }
 }
