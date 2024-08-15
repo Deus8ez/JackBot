@@ -21,7 +21,7 @@ namespace JackBot
             Task.Run(Monitor);
         }
 
-        private async Task Monitor()
+        private void Monitor()
         {
             while (true)
             {
@@ -35,7 +35,7 @@ namespace JackBot
                         _globalState.PollIdToMatch.Remove(pair.Key);
                         Player winner;
                         Player loser;
-                        await _botClient.SendTextMessageAsync(match.GroupId, $"Prompt: {match.Prompt}.\n {match.Player1.Username} response: {match.Player1Response}\n {match.Player2.Username} response: {match.Player2Response}\n");
+                        _botClient.SendTextMessageAsync(match.GroupId, $"Prompt: {match.Prompt}.\n {match.Player1.Username} response: {match.Player1Response}\n {match.Player2.Username} response: {match.Player2Response}\n");
 
                         if (match.Player1.MatchScore > match.Player2.MatchScore)
                         {
@@ -49,11 +49,11 @@ namespace JackBot
                         }
                         else
                         {
-                            await _botClient.SendTextMessageAsync(match.GroupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
+                            _botClient.SendTextMessageAsync(match.GroupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
                             continue;
                         }
 
-                        await _botClient.SendTextMessageAsync(match.GroupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( Click /vote");
+                        _botClient.SendTextMessageAsync(match.GroupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( Click /vote");
                     }
                 }
             }
