@@ -18,43 +18,45 @@ namespace JackBot
             _globalState = globalStateData;
             _questionManager = new PromptManager();
             _botClient = botClient;
-            Task.Run(() =>
+            Task.Run(Monitor);
+        }
+
+        private async Task Monitor()
+        {
+            while (true)
             {
-                while (true)
+                foreach (var pair in _globalState.PollIdToMatch)
                 {
-                    foreach (var pair in _globalState.PollIdToMatch)
+                    var match = pair.Value;
+                    if (match.IsExpired(_globalState.TimeOutMinutes) && match.GroupId != 0)
                     {
-                        var match = pair.Value;
-                        if (match.IsExpired(_globalState.TimeOutMinutes) && match.GroupId !=0)
+                        _globalState.UpdateStaticTotals(match.Player1.Id, match.Player1.MatchScore);
+                        _globalState.UpdateStaticTotals(match.Player2.Id, match.Player2.MatchScore);
+                        _globalState.PollIdToMatch.Remove(pair.Key);
+                        Player winner;
+                        Player loser;
+                        await _botClient.SendTextMessageAsync(match.GroupId, $"Prompt: {match.Prompt}.\n {match.Player1.Username} response: {match.Player1Response}\n {match.Player2.Username} response: {match.Player2Response}\n");
+
+                        if (match.Player1.MatchScore > match.Player2.MatchScore)
                         {
-                            _globalState.UpdateStaticTotals(match.Player1.Id, match.Player1.MatchScore);
-                            _globalState.UpdateStaticTotals(match.Player2.Id, match.Player2.MatchScore);
-                            _globalState.PollIdToMatch.Remove(pair.Key);
-                            Player winner;
-                            Player loser;
-                            _botClient.SendTextMessageAsync(match.GroupId, $"Prompt: {match.Prompt}. {match.Player1.Username} response: {match.Player1Response}\n{match.Player2.Username} response: {match.Player2Response}\n");
-
-                            if (match.Player1.MatchScore > match.Player2.MatchScore)
-                            {
-                                winner = match.Player1;
-                                loser = match.Player2;
-                            }
-                            else if (match.Player1.MatchScore < match.Player2.MatchScore)
-                            {
-                                winner = match.Player2;
-                                loser = match.Player1;
-                            }
-                            else
-                            {
-                                _botClient.SendTextMessageAsync(match.GroupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
-                                return;
-                            }
-
-                            _botClient.SendTextMessageAsync(match.GroupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( Click /vote");
+                            winner = match.Player1;
+                            loser = match.Player2;
                         }
+                        else if (match.Player1.MatchScore < match.Player2.MatchScore)
+                        {
+                            winner = match.Player2;
+                            loser = match.Player1;
+                        }
+                        else
+                        {
+                            await _botClient.SendTextMessageAsync(match.GroupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
+                            continue;
+                        }
+
+                        await _botClient.SendTextMessageAsync(match.GroupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( Click /vote");
                     }
                 }
-            });
+            }
         }
 
         public async Task HandleRequest(Update update)
@@ -293,7 +295,6 @@ namespace JackBot
             var poll = update.Poll;
             _globalState.TryGetGroupId(poll.Id, out long groupId);
 
-            //fix
             if (_globalState.PollIdToMatch.TryGetValue(poll.Id, out var asyncMatch))
             {
                 if (asyncMatch.IsExpired(_globalState.TimeOutMinutes))
@@ -338,25 +339,25 @@ namespace JackBot
                     player2.TotalScore += poll.Options[1].VoterCount;
                 };
 
-                if (match.Player1.MatchScore > match.Player2.MatchScore)
-                {
-                    winner = match.Player1;
-                    loser = match.Player2;
-                }
-                else if (match.Player1.MatchScore < match.Player2.MatchScore)
-                {
-                    winner = match.Player2;
-                    loser = match.Player1;
-                }
-                else
-                {
-                    await _botClient.SendTextMessageAsync(groupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
-                    session.VotingEnded = true;
-                    session.RemoveRevealedMatch(poll.Id);
-                    return;
-                }
+            if (match.Player1.MatchScore > match.Player2.MatchScore)
+            {
+                winner = match.Player1;
+                loser = match.Player2;
+            }
+            else if (match.Player1.MatchScore < match.Player2.MatchScore)
+            {
+                winner = match.Player2;
+                loser = match.Player1;
+            }
+            else
+            {
+                await _botClient.SendTextMessageAsync(groupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
+                session.VotingEnded = true;
+                session.RemoveRevealedMatch(poll.Id);
+                return;
+            }
 
-                await _botClient.SendTextMessageAsync(groupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( Click /vote");
+            await _botClient.SendTextMessageAsync(groupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( Click /vote");
                 session.VotingEnded = true;
                 session.RemoveRevealedMatch(poll.Id);
             }
