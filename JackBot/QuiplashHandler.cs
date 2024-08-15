@@ -160,7 +160,11 @@ namespace JackBot
 
         private async Task SetTimeOut(long groupId)
         {
-            if (_globalState.TimeOutMinutes == 2)
+            if(_globalState.TimeOutMinutes == 1)
+            {
+                _globalState.TimeOutMinutes = 2;
+            }
+            else if (_globalState.TimeOutMinutes == 2)
             {
                 _globalState.TimeOutMinutes = 5;
             }
@@ -168,9 +172,13 @@ namespace JackBot
             {
                 _globalState.TimeOutMinutes = 30;
             }
+            else if (_globalState.TimeOutMinutes == 30)
+            {
+                _globalState.TimeOutMinutes = 1440;
+            }
             else
             {
-                _globalState.TimeOutMinutes = 2;
+                _globalState.TimeOutMinutes = 1;
             }
             await _botClient.SendTextMessageAsync(groupId, $"Timeout set as: {_globalState.TimeOutMinutes}");
         }
