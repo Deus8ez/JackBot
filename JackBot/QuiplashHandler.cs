@@ -18,6 +18,43 @@ namespace JackBot
             _globalState = globalStateData;
             _questionManager = new PromptManager();
             _botClient = botClient;
+            Task.Run(() =>
+            {
+                while (true)
+                {
+                    foreach (var pair in _globalState.PollIdToMatch)
+                    {
+                        var match = pair.Value;
+                        if (match.IsExpired(_globalState.TimeOutMinutes) && match.GroupId !=0)
+                        {
+                            _globalState.UpdateStaticTotals(match.Player1.Id, match.Player1.MatchScore);
+                            _globalState.UpdateStaticTotals(match.Player2.Id, match.Player2.MatchScore);
+                            _globalState.PollIdToMatch.Remove(pair.Key);
+                            Player winner;
+                            Player loser;
+                            _botClient.SendTextMessageAsync(match.GroupId, $"Prompt: {match.Prompt}. {match.Player1.Username} response: {match.Player1Response}\n{match.Player2.Username} response: {match.Player2Response}\n");
+
+                            if (match.Player1.MatchScore > match.Player2.MatchScore)
+                            {
+                                winner = match.Player1;
+                                loser = match.Player2;
+                            }
+                            else if (match.Player1.MatchScore < match.Player2.MatchScore)
+                            {
+                                winner = match.Player2;
+                                loser = match.Player1;
+                            }
+                            else
+                            {
+                                _botClient.SendTextMessageAsync(match.GroupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
+                                return;
+                            }
+
+                            _botClient.SendTextMessageAsync(match.GroupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( Click /vote");
+                        }
+                    }
+                }
+            });
         }
 
         public async Task HandleRequest(Update update)
@@ -84,6 +121,10 @@ namespace JackBot
                 case "/overalltotals":
                     await ShowOverallTotals(groupId);
                     break;
+                case "/settimeout@jackboxer_bot":
+                case "/settimeout":
+                    await SetTimeOut(groupId);
+                    break;
                 case "/exit@jackboxer_bot":
                 case "/exit":
                     await Leave(groupId, message.From.Id, message.From.FirstName);
@@ -113,6 +154,23 @@ namespace JackBot
                     await _botClient.SendTextMessageAsync(groupId, $"Prompts in queue: {_globalState.AsyncMatches.Count}");
                     break;
             }
+        }
+
+        private async Task SetTimeOut(long groupId)
+        {
+            if (_globalState.TimeOutMinutes == 2)
+            {
+                _globalState.TimeOutMinutes = 5;
+            }
+            else if (_globalState.TimeOutMinutes == 5)
+            {
+                _globalState.TimeOutMinutes = 30;
+            }
+            else
+            {
+                _globalState.TimeOutMinutes = 2;
+            }
+            await _botClient.SendTextMessageAsync(groupId, $"Timeout set as: {_globalState.TimeOutMinutes}");
         }
 
         private async Task Execute(long groupId, string bashCommand)
@@ -238,7 +296,7 @@ namespace JackBot
             //fix
             if (_globalState.PollIdToMatch.TryGetValue(poll.Id, out var asyncMatch))
             {
-                if (asyncMatch.IsExpired())
+                if (asyncMatch.IsExpired(_globalState.TimeOutMinutes))
                 {
                     await _botClient.SendTextMessageAsync(groupId, $"This match expired");
                     return;
@@ -263,7 +321,7 @@ namespace JackBot
             match.Player1.MatchScore = poll.Options[0].VoterCount;
             match.Player2.MatchScore = poll.Options[1].VoterCount;
 
-            if (match.IsExpired() || poll.TotalVoterCount >= session.PlayerCount())
+            if (match.IsExpired(_globalState.TimeOutMinutes) || poll.TotalVoterCount >= session.PlayerCount())
             {
                 Player winner;
                 Player loser;
@@ -570,6 +628,7 @@ namespace JackBot
                 if (match.ResponseCount >= 2)
                 {
                     match.VoteTime = DateTime.Now;
+                    match.GroupId = groupId;
                     _globalState.AsyncMatches.Dequeue();
                     var poll = await _botClient.SendPollAsync(
                         chatId: groupId,
@@ -683,7 +742,7 @@ namespace JackBot
 
             foreach (var match in _globalState.PollIdToMatch)
             {
-                if (match.Value.IsExpired())
+                if (match.Value.IsExpired(_globalState.TimeOutMinutes))
                 {
                     _globalState.UpdateStaticTotals(match.Value.Player1.Id, match.Value.Player1.MatchScore);
                     _globalState.UpdateStaticTotals(match.Value.Player2.Id, match.Value.Player2.MatchScore);

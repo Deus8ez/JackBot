@@ -9,6 +9,7 @@
         public Player Player2;
         public string Player2Response;
         public DateTime VoteTime;
+        public long GroupId;
 
         public SessionMatch(string prompt, Player player1, Player player2)
         {
@@ -17,9 +18,9 @@
             Player2 = player2;
         }
 
-        public bool IsExpired()
+        public bool IsExpired(int minutes)
         {
-            if ((DateTime.Now - VoteTime).Days > 1)
+            if ((DateTime.Now - VoteTime).Minutes > minutes)
             {
                 return true;
             }
@@ -27,14 +28,5 @@
         }
 
         public int ResponseCount { get; set; }
-        public bool HasPlayers()
-        {
-            if(Player1 != null && Player2 != null)
-            {
-                return true;
-            }
-
-            return false;
-        }
     }
 }

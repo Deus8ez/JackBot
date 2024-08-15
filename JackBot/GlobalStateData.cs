@@ -4,6 +4,7 @@ namespace JackBot
 {
     internal class GlobalStateData
     {
+        public int TimeOutMinutes = 2;
         private Dictionary<long, string> _groupIdToPollId = new();
         private Dictionary<string, long> _pollIdToGroupId = new();
         public Dictionary<string, SessionMatch> PollIdToMatch = new();
