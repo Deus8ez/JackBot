@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -18,43 +19,45 @@ namespace JackBot
             _globalState = globalStateData;
             _questionManager = new PromptManager();
             _botClient = botClient;
-            Task.Run(() =>
+            Task.Run(Monitor);
+        }
+
+        private async Task Monitor()
+        {
+            while (true)
             {
-                while (true)
+                if(_globalState.AsyncCompleteMatches.TryPeek(out var match))
                 {
-                    foreach (var pair in _globalState.PollIdToMatch)
+                    if (match.IsExpired(_globalState.TimeOutMinutes) && match.GroupId != 0)
                     {
-                        var match = pair.Value;
-                        if (match.IsExpired(_globalState.TimeOutMinutes) && match.GroupId !=0)
+                        _globalState.UpdateStaticTotals(match.Player1.Id, match.Player1.MatchScore);
+                        _globalState.UpdateStaticTotals(match.Player2.Id, match.Player2.MatchScore);
+                        _globalState.PollIdToMatch.Remove(match.Guid.ToString());
+                        _globalState.AsyncCompleteMatches.Dequeue();
+                        Player winner;
+                        Player loser;
+                        await _botClient.SendTextMessageAsync(match.GroupId, $"Prompt: {match.Prompt}.\n{match.Player1.Username} response: {match.Player1Response}\n{match.Player2.Username} response: {match.Player2Response}\n");
+
+                        if (match.Player1.MatchScore > match.Player2.MatchScore)
                         {
-                            _globalState.UpdateStaticTotals(match.Player1.Id, match.Player1.MatchScore);
-                            _globalState.UpdateStaticTotals(match.Player2.Id, match.Player2.MatchScore);
-                            _globalState.PollIdToMatch.Remove(pair.Key);
-                            Player winner;
-                            Player loser;
-                            _botClient.SendTextMessageAsync(match.GroupId, $"Prompt: {match.Prompt}. {match.Player1.Username} response: {match.Player1Response}\n{match.Player2.Username} response: {match.Player2Response}\n");
-
-                            if (match.Player1.MatchScore > match.Player2.MatchScore)
-                            {
-                                winner = match.Player1;
-                                loser = match.Player2;
-                            }
-                            else if (match.Player1.MatchScore < match.Player2.MatchScore)
-                            {
-                                winner = match.Player2;
-                                loser = match.Player1;
-                            }
-                            else
-                            {
-                                _botClient.SendTextMessageAsync(match.GroupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
-                                return;
-                            }
-
-                            _botClient.SendTextMessageAsync(match.GroupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( Click /vote");
+                            winner = match.Player1;
+                            loser = match.Player2;
                         }
+                        else if (match.Player1.MatchScore < match.Player2.MatchScore)
+                        {
+                            winner = match.Player2;
+                            loser = match.Player1;
+                        }
+                        else
+                        {
+                            await _botClient.SendTextMessageAsync(match.GroupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
+                            continue;
+                        }
+
+                        await _botClient.SendTextMessageAsync(match.GroupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( Click /vote");
                     }
                 }
-            });
+            }
         }
 
         public async Task HandleRequest(Update update)
@@ -151,14 +154,18 @@ namespace JackBot
                     break;
                 case "/getstatus@jackboxer_bot":
                 case "/getstatus":
-                    await _botClient.SendTextMessageAsync(groupId, $"Prompts in queue: {_globalState.AsyncMatches.Count}");
+                    await _botClient.SendTextMessageAsync(groupId, $"Prompts in queue: {_globalState.AsyncToBePickedUpMatches.Count}");
                     break;
             }
         }
 
         private async Task SetTimeOut(long groupId)
         {
-            if (_globalState.TimeOutMinutes == 2)
+            if(_globalState.TimeOutMinutes == 1)
+            {
+                _globalState.TimeOutMinutes = 2;
+            }
+            else if (_globalState.TimeOutMinutes == 2)
             {
                 _globalState.TimeOutMinutes = 5;
             }
@@ -166,9 +173,13 @@ namespace JackBot
             {
                 _globalState.TimeOutMinutes = 30;
             }
+            else if (_globalState.TimeOutMinutes == 30)
+            {
+                _globalState.TimeOutMinutes = 1440;
+            }
             else
             {
-                _globalState.TimeOutMinutes = 2;
+                _globalState.TimeOutMinutes = 1;
             }
             await _botClient.SendTextMessageAsync(groupId, $"Timeout set as: {_globalState.TimeOutMinutes}");
         }
@@ -293,7 +304,6 @@ namespace JackBot
             var poll = update.Poll;
             _globalState.TryGetGroupId(poll.Id, out long groupId);
 
-            //fix
             if (_globalState.PollIdToMatch.TryGetValue(poll.Id, out var asyncMatch))
             {
                 if (asyncMatch.IsExpired(_globalState.TimeOutMinutes))
@@ -338,25 +348,25 @@ namespace JackBot
                     player2.TotalScore += poll.Options[1].VoterCount;
                 };
 
-                if (match.Player1.MatchScore > match.Player2.MatchScore)
-                {
-                    winner = match.Player1;
-                    loser = match.Player2;
-                }
-                else if (match.Player1.MatchScore < match.Player2.MatchScore)
-                {
-                    winner = match.Player2;
-                    loser = match.Player1;
-                }
-                else
-                {
-                    await _botClient.SendTextMessageAsync(groupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
-                    session.VotingEnded = true;
-                    session.RemoveRevealedMatch(poll.Id);
-                    return;
-                }
+            if (match.Player1.MatchScore > match.Player2.MatchScore)
+            {
+                winner = match.Player1;
+                loser = match.Player2;
+            }
+            else if (match.Player1.MatchScore < match.Player2.MatchScore)
+            {
+                winner = match.Player2;
+                loser = match.Player1;
+            }
+            else
+            {
+                await _botClient.SendTextMessageAsync(groupId, $"Draw. Score of {match.Player1.Username} is {match.Player1.MatchScore}\nScore of {match.Player2.Username} is {match.Player2.MatchScore}\n! Click /vote");
+                session.VotingEnded = true;
+                session.RemoveRevealedMatch(poll.Id);
+                return;
+            }
 
-                await _botClient.SendTextMessageAsync(groupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( Click /vote");
+            await _botClient.SendTextMessageAsync(groupId, $"Winner is {winner.Username} with the score of {winner.MatchScore}!\nLoser is {loser.Username} with the score of {loser.MatchScore} :( Click /vote");
                 session.VotingEnded = true;
                 session.RemoveRevealedMatch(poll.Id);
             }
@@ -365,7 +375,7 @@ namespace JackBot
         async Task HandleGetPrompt(long chatId)
         {
             string prompt = "";
-            foreach (var match in _globalState.AsyncMatches)
+            foreach (var match in _globalState.AsyncToBePickedUpMatches)
             {
                 if (match.Item2.ResponseCount < 2 && match.Item2.Player1.Id != chatId)
                 {
@@ -417,7 +427,7 @@ namespace JackBot
                     match.Player1 = new Player(userId, userName);
                     match.Player1Response = response;
                     match.ResponseCount++;
-                    _globalState.AsyncMatches.Enqueue((prompt, match));
+                    _globalState.AsyncToBePickedUpMatches.Enqueue((prompt, match));
                     _globalState.TryRegisterPlayer(userId, userName);
                     await _botClient.SendTextMessageAsync(chatId, $"(Async) Prompt: {prompt}, Your answer {response}");
                     return;
@@ -621,7 +631,7 @@ namespace JackBot
 
         async Task SendPoll(long groupId)
         {
-            if (_globalState.AsyncMatches.TryPeek(out var firstAsyncPoll))
+            if (_globalState.AsyncToBePickedUpMatches.TryPeek(out var firstAsyncPoll))
             {
                 var match = firstAsyncPoll.Item2;
 
@@ -629,7 +639,7 @@ namespace JackBot
                 {
                     match.VoteTime = DateTime.Now;
                     match.GroupId = groupId;
-                    _globalState.AsyncMatches.Dequeue();
+                    _globalState.AsyncToBePickedUpMatches.Dequeue();
                     var poll = await _botClient.SendPollAsync(
                         chatId: groupId,
                         isAnonymous: false,
