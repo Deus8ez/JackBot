@@ -321,7 +321,7 @@ namespace JackBot
             match.Player1.MatchScore = poll.Options[0].VoterCount;
             match.Player2.MatchScore = poll.Options[1].VoterCount;
 
-            if (match.IsExpired(_globalState.TimeOutMinutes) || poll.TotalVoterCount >= session.PlayerCount())
+            if (poll.TotalVoterCount >= session.PlayerCount())
             {
                 Player winner;
                 Player loser;
